@@ -2,7 +2,7 @@
 name = "libkrypton"
 version = "0.1.0"
 edition = "2018"
-license = "MIT OR Apache-2.0 OR CC-BY"
+license = "MIT OR Apache-2.0 OR CC-BY-4.0"
 repository = "https://github.com/ast-ral/libkrypton/"
 description = "toy crypto lib"
 

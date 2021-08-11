@@ -198,7 +198,7 @@ pub fn poly1305(mut message: &[u8], mut radix: [u8; 16], nonce: [u8; 16]) -> [u8
 /// Verifies a Poly1305 `tag` given the original `message`, `radix`, and `nonce`
 /// that was used to generate it. Note that naive comparison of tags may result
 /// in timing attacks. It's strongly recommended to use this function to verify
-/// Poly1305 tags instead of using == on tags.
+/// Poly1305 tags instead of using `==` on tags.
 pub fn poly1305_verify(message: &[u8], radix: [u8; 16], nonce: [u8; 16], tag: [u8; 16]) -> bool {
 	let correct_tag = poly1305(message, radix, nonce);
 	constant_time_compare(tag, correct_tag)

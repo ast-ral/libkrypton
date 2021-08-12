@@ -1,37 +1,47 @@
 //! Implemented according to [IETF RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439).
 
 use std::convert::TryInto;
-use std::ops::{Add, Mul};
+
+use crate::segmented_int::{SegmentedInt, SegmentedIntDescriptor};
 
 /// 130-bit integer type that subtracts out 2 ** 130 - 5 until results fit within the bit length.
-#[derive(Copy, Clone)]
-struct Limbs {
-	inner: [u32; 5],
+type Num = SegmentedInt<Poly1305Descriptor>;
+
+struct Poly1305Descriptor;
+
+impl SegmentedIntDescriptor for Poly1305Descriptor {
+	type SegmentType = u64;
+
+	const SEGMENT_SIZE: u16 = 26;
+	const CARRY_FACTOR: u64 = 5;
+	const SEGMENT_MASK: u64 = LOW_26_BITS;
+	const ZERO: u64 = 0;
+	const ONE: u64 = 1;
 }
 
-const LOW_26_BITS: u32 = 0x03ff_ffff;
+const LOW_26_BITS: u64 = 0x03ff_ffff;
 
-impl Limbs {
+impl Num {
 	fn zero() -> Self {
-		Self {inner: [0; 5]}
+		Self {segments: [0; 5]}
 	}
 
 	fn from_16_le_bytes(bytes: [u8; 16]) -> Self {
 		let as_num = u128::from_le_bytes(bytes);
-		let mut inner = [0; 5];
+		let mut segments = [0; 5];
 
 		for i in 0 .. 5 {
-			inner[i] = (as_num >> (26 * i)) as u32 & LOW_26_BITS;
+			segments[i] = (as_num >> (26 * i)) as u64 & LOW_26_BITS;
 		}
 
-		Self {inner}
+		Self {segments}
 	}
 
 	fn from_complete_chunk(chunk: &[u8; 16]) -> Self {
 		let mut out = Self::from_16_le_bytes(*chunk);
 
 		// set the top bit
-		out.inner[4] |= 1 << 24;
+		out.segments[4] |= 1 << 24;
 
 		out
 	}
@@ -47,114 +57,16 @@ impl Limbs {
 		Self::from_16_le_bytes(bytes)
 	}
 
-	fn to_16_le_bytes(&self) -> [u8; 16] {
-		// full modular reduction modulo 2 ** 130 - 5
-		let mut inner = self.inner;
-		let carry = carry_propagate_u32(&mut inner, 5);
-		let mut inner = self.inner;
-		carry_propagate_u32(&mut inner, carry * 5);
+	fn to_16_le_bytes(mut self) -> [u8; 16] {
+		self.full_modular_reduction();
 
 		let mut out = 0;
 
 		for i in 0 .. 5 {
-			out |= (inner[i] as u128) << (26 * i);
+			out |= (self.segments[i] as u128) << (26 * i);
 		}
 
 		out.to_le_bytes()
-	}
-}
-
-fn carry_propagate_u32(inner: &mut [u32; 5], mut carry: u32) -> u32 {
-	for i in 0 .. 5 {
-		inner[i] += carry;
-		carry = inner[i] >> 26;
-		inner[i] &= LOW_26_BITS;
-	}
-
-	carry
-}
-
-fn carry_propagate_u64(inner: &mut [u64; 5], mut carry: u64) -> u64 {
-	for i in 0 .. 5 {
-		inner[i] += carry;
-		carry = inner[i] >> 26;
-		inner[i] &= LOW_26_BITS as u64;
-	}
-
-	carry
-}
-
-fn to_u32_limbs(inner: &[u64; 5]) -> [u32; 5] {
-	let mut out = [0; 5];
-
-	for i in 0 .. 5 {
-		out[i] = inner[i] as u32;
-	}
-
-	out
-}
-
-fn to_u64_limbs(inner: &[u32; 5]) -> [u64; 5] {
-	let mut out = [0; 5];
-
-	for i in 0 .. 5 {
-		out[i] = inner[i] as u64;
-	}
-
-	out
-}
-
-impl Add for Limbs {
-	type Output = Self;
-
-	fn add(self, other: Self) -> Self {
-		let mut inner = [0; 5];
-
-		let a = self.inner;
-		let b = other.inner;
-
-		for i in 0 .. 5 {
-			inner[i] = a[i] + b[i];
-		}
-
-		let mut carry = inner[4] >> 26;
-		inner[4] &= LOW_26_BITS;
-
-		for _ in 0 .. 2 {
-			carry = carry_propagate_u32(&mut inner, carry * 5);
-		}
-
-		debug_assert!(carry == 0);
-
-		Self {inner}
-	}
-}
-
-impl Mul for Limbs {
-	type Output = Self;
-
-	fn mul(self, other: Self) -> Self {
-		let mut inner = [0; 5];
-
-		let a = to_u64_limbs(&self.inner);
-		let b = to_u64_limbs(&other.inner);
-
-		inner[0] = a[0] * b[0] + 5 * (a[1] * b[4] + a[2] * b[3] + a[3] * b[2] + a[4] * b[1]);
-		inner[1] = a[0] * b[1] + a[1] * b[0] + 5 * (a[2] * b[4] + a[3] * b[3] + a[4] * b[2]);
-		inner[2] = a[0] * b[2] + a[1] * b[1] + a[2] * b[0] + 5 * (a[3] * b[4] + a[4] * b[3]);
-		inner[3] = a[0] * b[3] + a[1] * b[2] + a[2] * b[1] + a[3] * b[0] + 5 * a[4] * b[4];
-		inner[4] = a[0] * b[4] + a[1] * b[3] + a[2] * b[2] + a[3] * b[1] + a[4] * b[0];
-
-		let mut carry = inner[4] >> 26;
-		inner[4] &= LOW_26_BITS as u64;
-
-		for _ in 0 .. 3 {
-			carry = carry_propagate_u64(&mut inner, carry * 5);
-		}
-
-		debug_assert!(carry == 0);
-
-		Self {inner: to_u32_limbs(&inner)}
 	}
 }
 
@@ -173,24 +85,24 @@ fn clamp_radix(radix: &mut [u8; 16]) {
 pub fn poly1305(mut message: &[u8], mut radix: [u8; 16], nonce: [u8; 16]) -> [u8; 16] {
 	clamp_radix(&mut radix);
 
-	let radix = Limbs::from_16_le_bytes(radix);
+	let radix = Num::from_16_le_bytes(radix);
 
-	let mut accum = Limbs::zero();
+	let mut accum = Num::zero();
 
 	while message.len() >= 16 {
-		let val = Limbs::from_complete_chunk(message[0 .. 16].try_into().unwrap());
-		accum = accum + val;
-		accum = accum * radix;
+		let val = Num::from_complete_chunk(message[0 .. 16].try_into().unwrap());
+		accum += val;
+		accum *= radix;
 		message = &message[16 ..];
 	}
 
 	if message.len() >= 1 {
-		let val = Limbs::from_incomplete_chunk(message);
-		accum = accum + val;
-		accum = accum * radix;
+		let val = Num::from_incomplete_chunk(message);
+		accum += val;
+		accum *= radix;
 	}
 
-	accum = accum + Limbs::from_16_le_bytes(nonce);
+	accum = accum + Num::from_16_le_bytes(nonce);
 
 	accum.to_16_le_bytes()
 }

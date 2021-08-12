@@ -4,7 +4,18 @@
 //! support being partially or fully modularly reduced by a prime slightly below
 //! 2 to the power of the width of the integer.
 
-use std::ops::{Add, AddAssign, BitAndAssign, Mul, MulAssign, Not, Shr};
+use std::ops::{
+	Add,
+	AddAssign,
+	BitAndAssign,
+	Mul,
+	MulAssign,
+	Neg,
+	Not,
+	Shr,
+	Sub,
+	SubAssign,
+};
 
 // TODO: consider whether it's worth it to use a multiplication type as well as a segment type
 // so that, for instance, numbers could be stored as 32-bit integers, but use 64-bit ints to multiply
@@ -17,7 +28,7 @@ pub trait SegmentedIntDescriptor {
 		BitAndAssign +
 		Copy +
 		Mul<Output = Self::SegmentType> +
-		Not +
+		Not<Output = Self::SegmentType> +
 		Shr<u16, Output = Self::SegmentType> +
 	;
 
@@ -129,6 +140,45 @@ impl<T: SegmentedIntDescriptor> Mul for SegmentedInt<T> {
 impl<T: SegmentedIntDescriptor> MulAssign for SegmentedInt<T> {
 	fn mul_assign(&mut self, other: Self) {
 		*self = *self * other;
+	}
+}
+
+impl<T: SegmentedIntDescriptor> Neg for SegmentedInt<T> {
+	type Output = Self;
+
+	fn neg(mut self) -> Self {
+		let mut carry = T::ONE;
+
+		for _ in 0 .. T::NUM_ADD_CARRIES {
+			carry = carry_propagate::<T>(&mut self.segments, carry * T::CARRY_FACTOR);
+		}
+
+		for i in 0 .. 5 {
+			self.segments[i] = !self.segments[i];
+			self.segments[i] &= T::SEGMENT_MASK;
+		}
+
+		let mut carry = T::ONE;
+
+		for _ in 0 .. T::NUM_ADD_CARRIES {
+			carry = carry_propagate::<T>(&mut self.segments, carry) * T::CARRY_FACTOR;
+		}
+
+		self
+	}
+}
+
+impl<T: SegmentedIntDescriptor> Sub for SegmentedInt<T> {
+	type Output = Self;
+
+	fn sub(self, other: Self) -> Self {
+		self + (-other)
+	}
+}
+
+impl<T: SegmentedIntDescriptor> SubAssign for SegmentedInt<T> {
+	fn sub_assign(&mut self, other: Self) {
+		*self += -other
 	}
 }
 

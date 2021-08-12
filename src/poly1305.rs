@@ -5,9 +5,9 @@ use std::convert::TryInto;
 use crate::segmented_int::{SegmentedInt, SegmentedIntDescriptor};
 
 /// 130-bit integer type that subtracts out 2 ** 130 - 5 until results fit within the bit length.
-type Num = SegmentedInt<Poly1305Descriptor>;
+pub type Num = SegmentedInt<Poly1305Descriptor>;
 
-struct Poly1305Descriptor;
+pub struct Poly1305Descriptor;
 
 impl SegmentedIntDescriptor for Poly1305Descriptor {
 	type SegmentType = u64;

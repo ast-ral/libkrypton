@@ -112,7 +112,7 @@ impl ChaCha20 {
 
 	/// # Panics
 	/// * Panics if the ChaCha20 instance runs out of bytes to encrypt/decrypt with.
-	///   In this case, the out buffer's contents are unspecified.
+	///   In this case, the buffer's contents are unspecified.
 
 	/// # Examples
 	/// ```

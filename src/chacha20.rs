@@ -1,6 +1,9 @@
 //! Implemented according to [IETF RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439).
+//! ChaCha20 is typically used as a symmetric stream cipher with a 256-bit key
+//! and a 96-bit nonce. See the [`ChaCha20`] docs for usage.
 
 use std::convert::TryInto;
+use std::io::{self, Read, Seek, SeekFrom};
 
 fn left_rotate(val: u32, rotation: u8) -> u32 {
 	(val << rotation) | (val >> (32 - rotation))
@@ -55,6 +58,10 @@ fn process_state(input: &[u32; 16], output: &mut [u32; 16]) {
 	}
 }
 
+/// Creating a ChaCha20 instance can be done through [`ChaCha20::new`].
+/// With an instance, you can encrypt/decrypt binary data with the [`ChaCha20::crypt`]
+/// function, or read raw pseudorandom data using the [`Iterator<Item = u8>`](Iterator)
+/// implementation or the [`Read`] implementation.
 pub struct ChaCha20 {
 	inner_state: [u32; 16],
 	outer_state: [u32; 16],
@@ -69,7 +76,8 @@ const K2: u32 = u32::from_le_bytes(*MAGIC[2]);
 const K3: u32 = u32::from_le_bytes(*MAGIC[3]);
 
 impl ChaCha20 {
-	// initializes a new chacha20 stream at block position 0
+	/// Initializes a new ChaCha20 stream at position 0.
+	/// The nonce here *must not* be reused to encrypt different messages.
 	pub fn new(key: [u8; 32], nonce: [u8; 12]) -> Self {
 		let mut inner_state = [
 			K0, K1, K2, K3,
@@ -97,6 +105,76 @@ impl ChaCha20 {
 			position_in_block: 0,
 		}
 	}
+
+	/// Encrypts or decrypts data using bytes drawn from the current location of the stream.
+	/// Since ChaCha20 is a stream cipher using xor, the same function can be used
+	/// for both encryption and decryption of data.
+
+	/// # Panics
+	/// * Panics if the ChaCha20 instance runs out of bytes to encrypt/decrypt with.
+	///   In this case, the out buffer's contents are unspecified.
+
+	/// # Examples
+	/// ```
+	/// # use libkrypton::chacha20::ChaCha20;
+	/// #
+	/// # let key = [0; 32];
+	/// # let nonce = [0; 12];
+	/// let mut data = *b"hello";
+	///
+	/// let mut stream = ChaCha20::new(key, nonce);
+	/// stream.crypt(&mut data);
+	/// // data now contains ciphertext and can be transferred e.g. across the network
+	///
+	/// // to decrypt:
+	/// // create a new ChaCha20 stream with the same parameters
+	/// let mut stream = ChaCha20::new(key, nonce);
+	/// // and use the same crypt function on the ciphertext
+	/// stream.crypt(&mut data);
+	/// // data now contains the original plaintext
+	///
+	/// assert!(data == *b"hello");
+	/// ```
+	pub fn crypt(&mut self, mut data: &mut [u8]) {
+		let mut buf = [0; 1024];
+
+		while data.len() != 0 {
+			let consuming = buf.len().min(data.len());
+			let buf = &mut buf[0 .. consuming];
+
+			self.read_exact(buf).unwrap();
+
+			for i in 0 .. consuming {
+				data[i] ^= buf[i];
+			}
+
+			data = &mut data[consuming ..];
+		}
+	}
+
+	/// This is provided as an alternative to the [`Seek`] implementation.
+	/// Sets the position of the stream as bytes from the start.
+	/// If the position is greater than the length of the stream,
+	/// it gets clamped down to the length of the stream.
+	pub fn set_pos(&mut self, pos: u64) {
+		match (pos / 64).try_into().ok() {
+			Some(block) => {
+				self.inner_state[12] = block;
+				self.position_in_block = (pos % 64) as u8;
+			}
+
+			None => {
+				self.inner_state[12] = u32::MAX;
+				self.position_in_block = 64;
+			}
+		}
+
+		process_state(&self.inner_state, &mut self.outer_state);
+	}
+
+	pub fn get_pos(&self) -> u64 {
+		self.inner_state[12] as u64 * 64 + self.position_in_block as u64
+	}
 }
 
 impl Iterator for ChaCha20 {
@@ -104,14 +182,14 @@ impl Iterator for ChaCha20 {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		if self.position_in_block == 64 {
-			if self.inner_state[12] == 0xffff_ffff {
+			if self.inner_state[12] == u32::MAX {
 				return None;
 			}
 
 			self.inner_state[12] += 1;
 			self.position_in_block = 0;
 
-			process_state(&self.inner_state, &mut self.outer_state)
+			process_state(&self.inner_state, &mut self.outer_state);
 		}
 
 		let position = usize::from(self.position_in_block);
@@ -119,6 +197,88 @@ impl Iterator for ChaCha20 {
 
 		let word = self.outer_state[position / 4];
 		Some(word.to_le_bytes()[position % 4])
+	}
+}
+
+impl Read for ChaCha20 {
+	fn read(&mut self, mut buf: &mut [u8]) -> io::Result<usize> {
+		let mut written = 0;
+
+		// write until we get to the end of the block
+		while buf.len() != 0 /* && self.position_in_block != 64 */ {
+			buf[0] = match self.next() {
+				Some(x) => x,
+				None => return Ok(written),
+			};
+			buf = &mut buf[1 ..];
+			written += 1;
+		}
+
+		// write whole 64-byte chunks while we can
+		while buf.len() >= 64 {
+			if self.inner_state[12] == u32::MAX {
+				return Ok(written);
+			}
+
+			self.inner_state[12] += 1;
+			process_state(&self.inner_state, &mut self.outer_state);
+
+			for i in 0 .. 16 {
+				let [a, b, c, d] = self.outer_state[i].to_le_bytes();
+
+				buf[0] = a;
+				buf[1] = b;
+				buf[2] = c;
+				buf[3] = d;
+
+				buf = &mut buf[4 ..];
+			}
+
+			written += 64;
+		}
+
+		// write the rest of the buffer
+		while buf.len() != 0 {
+			buf[0] = match self.next() {
+				Some(x) => x,
+				None => return Ok(written),
+			};
+			buf = &mut buf[1 ..];
+			written += 1;
+		}
+
+		Ok(written)
+	}
+}
+
+fn offset_u64(a: u64, b: i64) -> u64 {
+	match b {
+		0 => a,
+		1 ..= i64::MAX => a + b as u64,
+		i64::MIN ..= -1 => a - ((-b) as u64),
+	}
+}
+
+impl Seek for ChaCha20 {
+	fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+		match pos {
+			SeekFrom::Start(pos) => {
+				self.set_pos(pos);
+				Ok(self.get_pos())
+			}
+
+			SeekFrom::Current(diff) => {
+				let pos = self.get_pos();
+				self.set_pos(offset_u64(pos, diff));
+				Ok(self.get_pos())
+			}
+
+			SeekFrom::End(diff) => {
+				let end = 64 * (u32::MAX as u64 + 1);
+				self.set_pos(offset_u64(end, diff));
+				Ok(self.get_pos())
+			}
+		}
 	}
 }
 
@@ -177,4 +337,61 @@ fn rfc8439_quarter_round_test_vector() {
 	assert_eq!(b, 0xcb1cf8ce);
 	assert_eq!(c, 0x4581472e);
 	assert_eq!(d, 0x5881c4bb);
+}
+
+#[test]
+fn check_read_vs_iterator() {
+	let mut stream = ChaCha20::new([0; 32], [0; 12]);
+
+	// set_pos(32) here to check handing of Read when it's not 64-byte aligned
+
+	let buf_read = &mut [0; 1024];
+	stream.set_pos(32);
+	stream.read_exact(buf_read).unwrap();
+
+	let buf_iter = &mut [0; 1024];
+	stream.set_pos(32);
+	buf_iter.iter_mut().for_each(|x| *x = stream.next().unwrap());
+
+	assert!(buf_read == buf_iter);
+}
+
+#[test]
+fn verify_encrypt_decrypt_round_trip() {
+	let data = &mut [0; 1024];
+	let mut stream = ChaCha20::new([0; 32], [0; 12]);
+
+	stream.crypt(data);
+	stream.rewind().unwrap();
+	stream.crypt(data);
+
+	assert!(*data == [0; 1024]);
+}
+
+#[test]
+fn check_read_vs_verify() {
+	// crypt on zero bytes should be the same as the read stream
+
+	let mut stream = ChaCha20::new([0; 32], [0; 12]);
+
+	// use 1024 + 512 here to test buffers that aren't a multiple of 1024
+
+	let buf_read = &mut [0; 1536];
+	stream.read_exact(buf_read).unwrap();
+
+	stream.rewind().unwrap();
+
+	let buf_crypt = &mut [0; 1536];
+	stream.crypt(buf_crypt);
+
+	assert!(buf_read == buf_crypt);
+}
+
+#[test]
+fn check_seek_to_end_and_read() {
+	let mut stream = ChaCha20::new([0; 32], [0; 12]);
+
+	stream.seek(SeekFrom::End(-7)).unwrap();
+
+	assert!(stream.read(&mut [0; 64]).unwrap() == 7);
 }

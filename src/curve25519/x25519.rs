@@ -164,19 +164,18 @@ fn x25519_iterated_test_vector() {
 
 /// Given your private key (`priv_key`), returns your public key. This public
 /// key may be used by any other party to compute a shared secret using
-/// `x25519_derive_secret` or another implementation of X25519.
+/// [`x25519_derive_secret`] or another implementation of X25519.
 pub fn x25519_derive_pub_key(priv_key: [u8; 32]) -> [u8; 32] {
 	x25519_mult(priv_key, BASE).to_bytes()
 }
 
 /// Given your private key (`priv_key`) and another party's public key (`pub_key`),
 /// returns a shared secret that is computable by both you and the other party.
-/// Assuming the cryptosystem holds and the other party is working in good faith,
-/// this shared secret cannot be computed by anyone without knowledge of
-/// either your private key or the other party's private key. This shared secret
-/// is suitable to be used with a KDF to derive keys for use with symmetric
-/// cryptography. Note well that the other party may maliciously choose their
-/// public key, and the shared secret will be all zeros in this case.
+/// This shared secret is suitable to be used with a KDF to derive keys for use
+/// with symmetric cryptography. Note that the other party may maliciously
+/// choose their public key, and the shared secret will be all zeros in this case.
+/// Otherwise, this shared secret cannot be computed by anyone without knowledge of
+/// either your private key or the other party's private key.
 pub fn x25519_derive_secret(priv_key: [u8; 32], pub_key: [u8; 32]) -> [u8; 32] {
 	let pub_key = Num::from_bytes(pub_key);
 	x25519_mult(priv_key, pub_key).to_bytes()

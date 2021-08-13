@@ -94,14 +94,15 @@ impl Num {
 
 #[test]
 fn test_from_and_to_bytes() {
+	use std::io::Read;
 	use crate::chacha20::ChaCha20;
 
 	let mut stream = ChaCha20::new(*b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef", *b"ghijklmnopqr");
 
 	for _ in 0 .. 100 {
-		// get psuedorandom bytes from chacha20
+		// get pseudorandom bytes from chacha20
 		let mut data: [u8; 32] = [0; 32];
-		data.iter_mut().for_each(|x| *x = stream.next().unwrap());
+		stream.read_exact(&mut data).unwrap();
 
 		let as_num = Num::from_bytes(data);
 		let round_trip_data = as_num.to_bytes();

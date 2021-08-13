@@ -181,3 +181,17 @@ pub fn x25519_derive_secret(priv_key: [u8; 32], pub_key: [u8; 32]) -> [u8; 32] {
 	let pub_key = Num::from_bytes(pub_key);
 	x25519_mult(priv_key, pub_key).to_bytes()
 }
+
+/// Determines whether the shared secret is all zeros. It's strongly recommended
+/// to use this function instead of something like `==` to check if the secret is
+/// all zeros because this function works in constant time, and will not leak
+/// any information about the shared secret.
+pub fn is_shared_secret_all_zero(secret: [u8; 32]) -> bool {
+	let mut acc = 0;
+
+	for byte in secret {
+		acc |= byte;
+	}
+
+	acc == 0
+}

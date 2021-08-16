@@ -51,7 +51,9 @@ fn x25519_mult(mut scalar: [u8; 32], point: Num) -> Num {
 	conditional_swap(swap, &mut x2, &mut x3);
 	conditional_swap(swap, &mut z2, &mut z3);
 
-	x2 / z2
+	let mut out = x2 / z2;
+	out.full_modular_reduction();
+	out
 }
 
 /// Swaps the two numbers given if `swap` is 1, does nothing if `swap` is 0.

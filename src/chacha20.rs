@@ -205,7 +205,7 @@ impl Read for ChaCha20 {
 		let mut written = 0;
 
 		// write until we get to the end of the block
-		while buf.len() != 0 /* && self.position_in_block != 64 */ {
+		while buf.len() != 0 && self.position_in_block != 64 {
 			buf[0] = match self.next() {
 				Some(x) => x,
 				None => return Ok(written),

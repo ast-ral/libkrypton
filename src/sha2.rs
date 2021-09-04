@@ -1,16 +1,51 @@
-pub fn sha224(msg: &[u8]) -> [u8; 28] {
-	let initial_hash_vals = [
-		0xc1059ed8,
-		0x367cd507,
-		0x3070dd17,
-		0xf70e5939,
-		0xffc00b31,
-		0x68581511,
-		0x64f98fa7,
-		0xbefa4fa4,
-	];
+// TODO: remove unnecessary duplication of code in this file
 
-	let final_hash_vals = sha_small::sha_internal(initial_hash_vals, msg);
+const SHA224_INITIAL_HASH_VALS: [u32; 8] = [
+	0xc1059ed8,
+	0x367cd507,
+	0x3070dd17,
+	0xf70e5939,
+	0xffc00b31,
+	0x68581511,
+	0x64f98fa7,
+	0xbefa4fa4,
+];
+
+const SHA256_INITIAL_HASH_VALS: [u32; 8] = [
+	0x6a09e667,
+	0xbb67ae85,
+	0x3c6ef372,
+	0xa54ff53a,
+	0x510e527f,
+	0x9b05688c,
+	0x1f83d9ab,
+	0x5be0cd19,
+];
+
+const SHA384_INITIAL_HASH_VALS: [u64; 8] = [
+	0xcbbb9d5dc1059ed8,
+	0x629a292a367cd507,
+	0x9159015a3070dd17,
+	0x152fecd8f70e5939,
+	0x67332667ffc00b31,
+	0x8eb44a8768581511,
+	0xdb0c2e0d64f98fa7,
+	0x47b5481dbefa4fa4,
+];
+
+const SHA512_INITIAL_HASH_VALS: [u64; 8] = [
+	0x6a09e667f3bcc908,
+	0xbb67ae8584caa73b,
+	0x3c6ef372fe94f82b,
+	0xa54ff53a5f1d36f1,
+	0x510e527fade682d1,
+	0x9b05688c2b3e6c1f,
+	0x1f83d9abfb41bd6b,
+	0x5be0cd19137e2179,
+];
+
+pub fn sha224(msg: &[u8]) -> [u8; 28] {
+	let final_hash_vals = sha_small::sha_internal(SHA224_INITIAL_HASH_VALS, msg);
 
 	let mut out = [0; 28];
 
@@ -22,18 +57,7 @@ pub fn sha224(msg: &[u8]) -> [u8; 28] {
 }
 
 pub fn sha256(msg: &[u8]) -> [u8; 32] {
-	let initial_hash_vals = [
-		0x6a09e667,
-		0xbb67ae85,
-		0x3c6ef372,
-		0xa54ff53a,
-		0x510e527f,
-		0x9b05688c,
-		0x1f83d9ab,
-		0x5be0cd19,
-	];
-
-	let final_hash_vals = sha_small::sha_internal(initial_hash_vals, msg);
+	let final_hash_vals = sha_small::sha_internal(SHA256_INITIAL_HASH_VALS, msg);
 
 	let mut out = [0; 32];
 
@@ -45,18 +69,7 @@ pub fn sha256(msg: &[u8]) -> [u8; 32] {
 }
 
 pub fn sha384(msg: &[u8]) -> [u8; 48] {
-	let initial_hash_vals = [
-		0xcbbb9d5dc1059ed8,
-		0x629a292a367cd507,
-		0x9159015a3070dd17,
-		0x152fecd8f70e5939,
-		0x67332667ffc00b31,
-		0x8eb44a8768581511,
-		0xdb0c2e0d64f98fa7,
-		0x47b5481dbefa4fa4,
-	];
-
-	let final_hash_vals = sha_big::sha_internal(initial_hash_vals, msg);
+	let final_hash_vals = sha_big::sha_internal(SHA384_INITIAL_HASH_VALS, msg);
 
 	let mut out = [0; 48];
 
@@ -68,18 +81,7 @@ pub fn sha384(msg: &[u8]) -> [u8; 48] {
 }
 
 pub fn sha512(msg: &[u8]) -> [u8; 64] {
-	let initial_hash_vals = [
-		0x6a09e667f3bcc908,
-		0xbb67ae8584caa73b,
-		0x3c6ef372fe94f82b,
-		0xa54ff53a5f1d36f1,
-		0x510e527fade682d1,
-		0x9b05688c2b3e6c1f,
-		0x1f83d9abfb41bd6b,
-		0x5be0cd19137e2179,
-	];
-
-	let final_hash_vals = sha_big::sha_internal(initial_hash_vals, msg);
+	let final_hash_vals = sha_big::sha_internal(SHA512_INITIAL_HASH_VALS, msg);
 
 	let mut out = [0; 64];
 
@@ -88,6 +90,114 @@ pub fn sha512(msg: &[u8]) -> [u8; 64] {
 	}
 
 	out
+}
+
+#[derive(Clone)]
+pub struct Sha224 {
+	internal: sha_small::ShaHasher,
+}
+
+impl Sha224 {
+	pub fn new() -> Self {
+		Self {internal: sha_small::ShaHasher::new(SHA224_INITIAL_HASH_VALS)}
+	}
+
+	pub fn add_bytes(&mut self, bytes: &[u8]) {
+		self.internal.add_bytes(bytes);
+	}
+
+	pub fn out(self) -> [u8; 28] {
+		let final_hash_vals = self.internal.out();
+
+		let mut out = [0; 28];
+	
+		for i in 0 .. 7 {
+			out[4 * i .. 4 * (i + 1)].copy_from_slice(&final_hash_vals[i].to_be_bytes());
+		}
+	
+		out
+	}
+}
+
+#[derive(Clone)]
+pub struct Sha256 {
+	internal: sha_small::ShaHasher,
+}
+
+impl Sha256 {
+	pub fn new() -> Self {
+		Self {internal: sha_small::ShaHasher::new(SHA256_INITIAL_HASH_VALS)}
+	}
+
+	pub fn add_bytes(&mut self, bytes: &[u8]) {
+		self.internal.add_bytes(bytes);
+	}
+
+	pub fn out(self) -> [u8; 32] {
+		let final_hash_vals = self.internal.out();
+
+		let mut out = [0; 32];
+	
+		for i in 0 .. 8 {
+			out[4 * i .. 4 * (i + 1)].copy_from_slice(&final_hash_vals[i].to_be_bytes());
+		}
+	
+		out
+	}
+}
+
+#[derive(Clone)]
+pub struct Sha384 {
+	internal: sha_big::ShaHasher,
+}
+
+impl Sha384 {
+	pub fn new() -> Self {
+		Self {internal: sha_big::ShaHasher::new(SHA384_INITIAL_HASH_VALS)}
+	}
+
+	pub fn add_bytes(&mut self, bytes: &[u8]) {
+		self.internal.add_bytes(bytes);
+	}
+
+	pub fn out(self) -> [u8; 48] {
+		let final_hash_vals = self.internal.out();
+
+		let mut out = [0; 48];
+
+		for i in 0 .. 6 {
+			out[8 * i .. 8 * (i + 1)].copy_from_slice(&final_hash_vals[i].to_be_bytes());
+		}
+	
+		out
+	}
+}
+
+#[derive(Clone)]
+pub struct Sha512 {
+	internal: sha_big::ShaHasher,
+}
+
+impl Sha512 {
+	pub fn new() -> Self {
+		Self {internal: sha_big::ShaHasher::new(SHA512_INITIAL_HASH_VALS)}
+	}
+
+	pub fn add_bytes(&mut self, bytes: &[u8]) {
+		self.internal.add_bytes(bytes);
+	}
+
+	pub fn out(self) -> [u8; 64] {
+		let final_hash_vals = self.internal.out();
+
+		let mut out = [0; 64];
+
+		for i in 0 .. 8 {
+			out[8 * i .. 8 * (i + 1)].copy_from_slice(&final_hash_vals[i].to_be_bytes());
+		}
+	
+		out
+	}
 }
 
 mod sha_small {
@@ -140,6 +250,67 @@ mod sha_small {
 		}
 
 		hash_vals
+	}
+
+	#[derive(Clone)]
+	pub struct ShaHasher {
+		hash_vals: [u32; 8],
+		block_buffer: [u8; 64],
+		block_pos: usize,
+		num_bytes: u64,
+	}
+
+	impl ShaHasher {
+		pub fn new(hash_vals: [u32; 8]) -> Self {
+			Self {
+				hash_vals,
+				block_buffer: [0; 64],
+				block_pos: 0,
+				num_bytes: 0,
+			}
+		}
+
+		pub fn add_bytes(&mut self, mut bytes: &[u8]) {
+			let adding_bytes = bytes.len().try_into().unwrap();
+			self.num_bytes = self.num_bytes.checked_add(adding_bytes).unwrap();
+
+			assert!(self.num_bytes < (1u64 << 61));
+
+			while bytes.len() != 0 {
+				let num_to_copy = (64 - self.block_pos).min(bytes.len());
+				let (copying, remainder) = bytes.split_at(num_to_copy);
+				bytes = remainder;
+				let new_block_pos = self.block_pos + num_to_copy;
+				self.block_buffer[self.block_pos .. new_block_pos].copy_from_slice(copying);
+				self.block_pos = new_block_pos;
+
+				if self.block_pos == 64 {
+					sha_block(&mut self.hash_vals, &self.block_buffer);
+					self.block_pos = 0;
+				}
+			}
+		}
+
+		pub fn out(mut self) -> [u32; 8] {
+			let num_bits = 8 * self.num_bytes;
+
+			self.block_buffer[self.block_pos ..].fill(0);
+			self.block_buffer[self.block_pos] = 0x80;
+
+			self.block_pos += 1;
+
+			if self.block_pos < 64 - 8 {
+				self.block_buffer[64 - 8 ..].copy_from_slice(&num_bits.to_be_bytes());
+				sha_block(&mut self.hash_vals, &self.block_buffer);
+			} else {
+				sha_block(&mut self.hash_vals, &self.block_buffer);
+				self.block_buffer.fill(0);
+				self.block_buffer[64 - 8 ..].copy_from_slice(&num_bits.to_be_bytes());
+				sha_block(&mut self.hash_vals, &self.block_buffer);
+			}
+
+			self.hash_vals
+		}
 	}
 
 	fn right_rotate(val: u32, rotation: u8) -> u32 {
@@ -203,12 +374,6 @@ mod sha_small {
 	}
 }
 
-// SHA-512 is annoyingly similar enough to SHA-256 to make you want to
-// abstract away the common logic, then instantiate it once for each
-
-// but it's also annoyingly different enough to make it a lot easier
-// to just copy-paste the code and change what you need :/
-
 mod sha_big {
 	use std::convert::TryInto;
 
@@ -267,6 +432,67 @@ mod sha_big {
 		}
 
 		hash_vals
+	}
+
+	#[derive(Clone)]
+	pub struct ShaHasher {
+		hash_vals: [u64; 8],
+		block_buffer: [u8; 128],
+		block_pos: usize,
+		num_bytes: u128,
+	}
+
+	impl ShaHasher {
+		pub fn new(hash_vals: [u64; 8]) -> Self {
+			Self {
+				hash_vals,
+				block_buffer: [0; 128],
+				block_pos: 0,
+				num_bytes: 0,
+			}
+		}
+
+		pub fn add_bytes(&mut self, mut bytes: &[u8]) {
+			let adding_bytes = bytes.len().try_into().unwrap();
+			self.num_bytes = self.num_bytes.checked_add(adding_bytes).unwrap();
+
+			assert!(self.num_bytes < (1u128 << 125));
+
+			while bytes.len() != 0 {
+				let num_to_copy = (128 - self.block_pos).min(bytes.len());
+				let (copying, remainder) = bytes.split_at(num_to_copy);
+				bytes = remainder;
+				let new_block_pos = self.block_pos + num_to_copy;
+				self.block_buffer[self.block_pos .. new_block_pos].copy_from_slice(copying);
+				self.block_pos = new_block_pos;
+
+				if self.block_pos == 128 {
+					sha_block(&mut self.hash_vals, &self.block_buffer);
+					self.block_pos = 0;
+				}
+			}
+		}
+
+		pub fn out(mut self) -> [u64; 8] {
+			let num_bits = 8 * self.num_bytes;
+
+			self.block_buffer[self.block_pos ..].fill(0);
+			self.block_buffer[self.block_pos] = 0x80;
+
+			self.block_pos += 1;
+
+			if self.block_pos < 128 - 16 {
+				self.block_buffer[128 - 16 ..].copy_from_slice(&num_bits.to_be_bytes());
+				sha_block(&mut self.hash_vals, &self.block_buffer);
+			} else {
+				sha_block(&mut self.hash_vals, &self.block_buffer);
+				self.block_buffer.fill(0);
+				self.block_buffer[128 - 16 ..].copy_from_slice(&num_bits.to_be_bytes());
+				sha_block(&mut self.hash_vals, &self.block_buffer);
+			}
+
+			self.hash_vals
+		}
 	}
 
 	fn right_rotate(val: u64, rotation: u8) -> u64 {
@@ -347,7 +573,7 @@ fn format_hash<I: AsRef<[u8]>>(
 }
 
 #[test]
-fn test_empty_inputs() {
+fn test_empty_inputs_fns() {
 	assert_eq!(
 		format_hash(sha224, b""),
 		"d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f",
@@ -365,6 +591,45 @@ fn test_empty_inputs() {
 
 	assert_eq!(
 		format_hash(sha512, b""),
+		"cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
+	);
+}
+
+#[test]
+fn test_empty_inputs_structs() {
+	assert_eq!(
+		format_hash(|x| {
+			let mut h = Sha224::new();
+			h.add_bytes(x);
+			h.out()
+		}, b""),
+		"d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f",
+	);
+
+	assert_eq!(
+		format_hash(|x| {
+			let mut h = Sha256::new();
+			h.add_bytes(x);
+			h.out()
+		}, b""),
+		"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+	);
+
+	assert_eq!(
+		format_hash(|x| {
+			let mut h = Sha384::new();
+			h.add_bytes(x);
+			h.out()
+		}, b""),
+		"38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b",
+	);
+
+	assert_eq!(
+		format_hash(|x| {
+			let mut h = Sha512::new();
+			h.add_bytes(x);
+			h.out()
+		}, b""),
 		"cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
 	);
 }

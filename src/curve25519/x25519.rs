@@ -3,6 +3,7 @@
 //! a shared secret between two parties without any middleman able to discern
 //! the secret.
 
+use super::conditional_swap;
 use super::num::Num;
 
 const BASE: Num = Num {segments: [9, 0, 0, 0, 0]};
@@ -20,14 +21,14 @@ fn x25519_mult(mut scalar: [u8; 32], point: Num) -> Num {
 	let mut x3 = point;
 	let mut z3 = Num::ONE;
 
-	let mut swap = 0;
+	let mut swapped = 0;
 
 	for current_bit in (0 .. 255).rev() {
-		let current_bit = (scalar[current_bit / 8] >> (current_bit % 8)) & 1;
-		swap ^= current_bit;
-		conditional_swap(swap, &mut x2, &mut x3);
-		conditional_swap(swap, &mut z2, &mut z3);
-		swap = current_bit;
+		let current_bit = (scalar[current_bit / 8] >> (current_bit % 8)) & 0x01;
+		let do_swap = swapped ^ current_bit;
+		conditional_swap(do_swap, &mut x2, &mut x3);
+		conditional_swap(do_swap, &mut z2, &mut z3);
+		swapped = current_bit;
 
 		// this variable naming is pretty much straight out of the RFC
 		// I am not to be blamed for it
@@ -48,25 +49,12 @@ fn x25519_mult(mut scalar: [u8; 32], point: Num) -> Num {
 		z2 = e * (aa + A24 * e);
 	}
 
-	conditional_swap(swap, &mut x2, &mut x3);
-	conditional_swap(swap, &mut z2, &mut z3);
+	conditional_swap(swapped, &mut x2, &mut x3);
+	conditional_swap(swapped, &mut z2, &mut z3);
 
 	let mut out = x2 / z2;
 	out.full_modular_reduction();
 	out
-}
-
-/// Swaps the two numbers given if `swap` is 1, does nothing if `swap` is 0.
-/// `swap` should never be anything besides 0 or 1.
-/// Works in constant time.
-fn conditional_swap(swap: u8, num_a: &mut Num, num_b: &mut Num) {
-	let mask = 0u128.wrapping_sub(swap as u128);
-
-	for i in 0 .. 5 {
-		let temp = mask & (num_a.segments[i] ^ num_b.segments[i]);
-		num_a.segments[i] ^= temp;
-		num_b.segments[i] ^= temp;
-	}
 }
 
 #[test]

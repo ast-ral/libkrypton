@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#![doc(html_logo_url = "https://raw.githubusercontent.com/ast-ral/libkrypton/master/logo.svg")]
+
 // to prevent broken links when building documentation in #![no_std] mode
 #[cfg(all(not(feature = "std"), doc))]
 extern crate std;

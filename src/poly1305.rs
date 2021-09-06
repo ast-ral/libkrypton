@@ -1,6 +1,6 @@
 //! Implemented according to [IETF RFC 8439](https://datatracker.ietf.org/doc/html/rfc8439).
 
-use std::convert::TryInto;
+use core::convert::TryInto;
 
 use crate::segmented_int::{SegmentedInt, SegmentedIntDescriptor};
 
@@ -127,6 +127,7 @@ fn constant_time_compare(tag_a: [u8; 16], tag_b: [u8; 16]) -> bool {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn rfc8439_main_test_vector() {
 	let message = b"Cryptographic Forum Research Group";
 	let radix = [

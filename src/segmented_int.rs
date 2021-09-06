@@ -4,7 +4,7 @@
 //! support being partially or fully modularly reduced by a prime slightly below
 //! 2 to the power of the width of the integer.
 
-use std::ops::{
+use core::ops::{
 	Add,
 	AddAssign,
 	BitAndAssign,

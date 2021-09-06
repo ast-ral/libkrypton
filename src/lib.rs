@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 pub mod chacha20;
 pub mod poly1305;
 pub mod sha2;

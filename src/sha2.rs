@@ -201,7 +201,7 @@ impl Sha512 {
 }
 
 mod sha_small {
-	use std::convert::TryInto;
+	use core::convert::TryInto;
 
 	const ROUND_CONSTANTS: [u32; 64] = [
 		0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -375,7 +375,7 @@ mod sha_small {
 }
 
 mod sha_big {
-	use std::convert::TryInto;
+	use core::convert::TryInto;
 
 	const ROUND_CONSTANTS: [u64; 80] = [
 		0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc, 0x3956c25bf348b538,
@@ -557,6 +557,7 @@ mod sha_big {
 }
 
 #[cfg(test)]
+#[cfg(feature = "std")]
 fn format_hash<I: AsRef<[u8]>>(
 	hasher: impl FnOnce(&[u8]) -> I,
 	input: &[u8],
@@ -573,6 +574,7 @@ fn format_hash<I: AsRef<[u8]>>(
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn test_empty_inputs_fns() {
 	assert_eq!(
 		format_hash(sha224, b""),
@@ -596,6 +598,7 @@ fn test_empty_inputs_fns() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn test_empty_inputs_structs() {
 	assert_eq!(
 		format_hash(|x| {

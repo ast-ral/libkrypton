@@ -1,4 +1,4 @@
-use std::ops::{Div, DivAssign};
+use core::ops::{Div, DivAssign};
 
 use crate::segmented_int::{SegmentedInt, SegmentedIntDescriptor};
 
@@ -93,6 +93,7 @@ impl Num {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn test_from_and_to_bytes() {
 	use std::io::Read;
 	use crate::chacha20::ChaCha20;
@@ -115,6 +116,7 @@ fn test_from_and_to_bytes() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn test_recip() {
 	for i in 1 .. 100 {
 		let num = Num {segments: [i, 0, 0, 0, 0]};

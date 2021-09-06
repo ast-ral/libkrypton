@@ -2,7 +2,9 @@
 //! ChaCha20 is typically used as a symmetric stream cipher with a 256-bit key
 //! and a 96-bit nonce. See the [`ChaCha20`] docs for usage.
 
-use std::convert::TryInto;
+use core::convert::TryInto;
+
+#[cfg(feature = "std")]
 use std::io::{self, Read, Seek, SeekFrom};
 
 fn left_rotate(val: u32, rotation: u8) -> u32 {
@@ -142,7 +144,8 @@ impl ChaCha20 {
 			let consuming = buf.len().min(data.len());
 			let buf = &mut buf[0 .. consuming];
 
-			self.read_exact(buf).unwrap();
+			let num_read = self.read_infallible(buf);
+			assert_eq!(num_read, buf.len());
 
 			for i in 0 .. consuming {
 				data[i] ^= buf[i];
@@ -175,6 +178,62 @@ impl ChaCha20 {
 	pub fn get_pos(&self) -> u64 {
 		self.inner_state[12] as u64 * 64 + self.position_in_block as u64
 	}
+
+	/// Function used as an alternative to the [`std::io::Read`] implementation,
+	/// either because you're in a `#![no_std]` project, or because you want
+	/// different guarantees from [`std::io::Read`]. Notably, this function
+	/// will always completely fill the buffer it is passed if it is able to do
+	/// so without reaching the end of the ChaCha20 stream. This always returns
+	/// the number of bytes read into the buffer and will return 0 if it cannot
+	/// provide any more bytes.
+	pub fn read_infallible(&mut self, mut buf: &mut [u8]) -> usize {
+		let mut written = 0;
+
+		// write until we get to the end of the block
+		while buf.len() != 0 && self.position_in_block != 64 {
+			buf[0] = match self.next() {
+				Some(x) => x,
+				None => return written,
+			};
+			buf = &mut buf[1 ..];
+			written += 1;
+		}
+
+		// write whole 64-byte chunks while we can
+		while buf.len() >= 64 {
+			if self.inner_state[12] == u32::MAX {
+				return written;
+			}
+
+			self.inner_state[12] += 1;
+			process_state(&self.inner_state, &mut self.outer_state);
+
+			for i in 0 .. 16 {
+				let [a, b, c, d] = self.outer_state[i].to_le_bytes();
+
+				buf[0] = a;
+				buf[1] = b;
+				buf[2] = c;
+				buf[3] = d;
+
+				buf = &mut buf[4 ..];
+			}
+
+			written += 64;
+		}
+
+		// write the rest of the buffer
+		while buf.len() != 0 {
+			buf[0] = match self.next() {
+				Some(x) => x,
+				None => return written,
+			};
+			buf = &mut buf[1 ..];
+			written += 1;
+		}
+
+		written
+	}
 }
 
 impl Iterator for ChaCha20 {
@@ -200,57 +259,14 @@ impl Iterator for ChaCha20 {
 	}
 }
 
+#[cfg(feature = "std")]
 impl Read for ChaCha20 {
-	fn read(&mut self, mut buf: &mut [u8]) -> io::Result<usize> {
-		let mut written = 0;
-
-		// write until we get to the end of the block
-		while buf.len() != 0 && self.position_in_block != 64 {
-			buf[0] = match self.next() {
-				Some(x) => x,
-				None => return Ok(written),
-			};
-			buf = &mut buf[1 ..];
-			written += 1;
-		}
-
-		// write whole 64-byte chunks while we can
-		while buf.len() >= 64 {
-			if self.inner_state[12] == u32::MAX {
-				return Ok(written);
-			}
-
-			self.inner_state[12] += 1;
-			process_state(&self.inner_state, &mut self.outer_state);
-
-			for i in 0 .. 16 {
-				let [a, b, c, d] = self.outer_state[i].to_le_bytes();
-
-				buf[0] = a;
-				buf[1] = b;
-				buf[2] = c;
-				buf[3] = d;
-
-				buf = &mut buf[4 ..];
-			}
-
-			written += 64;
-		}
-
-		// write the rest of the buffer
-		while buf.len() != 0 {
-			buf[0] = match self.next() {
-				Some(x) => x,
-				None => return Ok(written),
-			};
-			buf = &mut buf[1 ..];
-			written += 1;
-		}
-
-		Ok(written)
+	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+		Ok(self.read_infallible(buf))
 	}
 }
 
+#[cfg(feature = "std")]
 fn offset_u64(a: u64, b: i64) -> u64 {
 	match b {
 		0 => a,
@@ -259,6 +275,7 @@ fn offset_u64(a: u64, b: i64) -> u64 {
 	}
 }
 
+#[cfg(feature = "std")]
 impl Seek for ChaCha20 {
 	fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
 		match pos {
@@ -283,6 +300,7 @@ impl Seek for ChaCha20 {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn rfc8439_main_test_vector() {
 	let key = [
 		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
@@ -340,6 +358,7 @@ fn rfc8439_quarter_round_test_vector() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn check_read_vs_iterator() {
 	let mut stream = ChaCha20::new([0; 32], [0; 12]);
 
@@ -357,6 +376,7 @@ fn check_read_vs_iterator() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn verify_encrypt_decrypt_round_trip() {
 	let data = &mut [0; 1024];
 	let mut stream = ChaCha20::new([0; 32], [0; 12]);
@@ -369,6 +389,7 @@ fn verify_encrypt_decrypt_round_trip() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn check_read_vs_verify() {
 	// crypt on zero bytes should be the same as the read stream
 
@@ -388,6 +409,7 @@ fn check_read_vs_verify() {
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn check_seek_to_end_and_read() {
 	let mut stream = ChaCha20::new([0; 32], [0; 12]);
 

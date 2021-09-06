@@ -1,6 +1,6 @@
 //! Implemented according to [IETF RFC 8032](https://datatracker.ietf.org/doc/html/rfc8032).
 
-use std::convert::TryInto;
+use core::convert::TryInto;
 
 use crate::sha2::{sha512, Sha512};
 

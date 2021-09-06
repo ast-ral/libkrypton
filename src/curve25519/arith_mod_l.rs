@@ -1,6 +1,6 @@
 //! performs constant-time modular reduction over the order of the ed25519 curve group
 
-use std::convert::TryInto;
+use core::convert::TryInto;
 
 fn mul(a: u64, b: u64) -> (u128, u128) {
 	let res = a as u128 * b as u128;

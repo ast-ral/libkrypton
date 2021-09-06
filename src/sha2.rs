@@ -1,5 +1,7 @@
 // TODO: remove unnecessary duplication of code in this file
 
+//! An implementation of [SHA-2](https://en.wikipedia.org/wiki/SHA-2).
+
 const SHA224_INITIAL_HASH_VALS: [u32; 8] = [
 	0xc1059ed8,
 	0x367cd507,
@@ -44,6 +46,7 @@ const SHA512_INITIAL_HASH_VALS: [u64; 8] = [
 	0x5be0cd19137e2179,
 ];
 
+/// Returns the SHA-224 digest of the byte slice passed to it.
 pub fn sha224(msg: &[u8]) -> [u8; 28] {
 	let final_hash_vals = sha_small::sha_internal(SHA224_INITIAL_HASH_VALS, msg);
 
@@ -56,6 +59,7 @@ pub fn sha224(msg: &[u8]) -> [u8; 28] {
 	out
 }
 
+/// Returns the SHA-256 digest of the byte slice passed to it.
 pub fn sha256(msg: &[u8]) -> [u8; 32] {
 	let final_hash_vals = sha_small::sha_internal(SHA256_INITIAL_HASH_VALS, msg);
 
@@ -68,6 +72,7 @@ pub fn sha256(msg: &[u8]) -> [u8; 32] {
 	out
 }
 
+/// Returns the SHA-384 digest of the byte slice passed to it.
 pub fn sha384(msg: &[u8]) -> [u8; 48] {
 	let final_hash_vals = sha_big::sha_internal(SHA384_INITIAL_HASH_VALS, msg);
 
@@ -80,6 +85,7 @@ pub fn sha384(msg: &[u8]) -> [u8; 48] {
 	out
 }
 
+/// Returns the SHA-512 digest of the byte slice passed to it.
 pub fn sha512(msg: &[u8]) -> [u8; 64] {
 	let final_hash_vals = sha_big::sha_internal(SHA512_INITIAL_HASH_VALS, msg);
 
@@ -92,20 +98,25 @@ pub fn sha512(msg: &[u8]) -> [u8; 64] {
 	out
 }
 
+/// Struct used for computing SHA-224 on data not stored contiguously in memory.
 #[derive(Clone)]
 pub struct Sha224 {
 	internal: sha_small::ShaHasher,
 }
 
 impl Sha224 {
+	/// Creates a new SHA-224 hasher.
 	pub fn new() -> Self {
 		Self {internal: sha_small::ShaHasher::new(SHA224_INITIAL_HASH_VALS)}
 	}
 
+	/// Adds bytes to the hasher.
 	pub fn add_bytes(&mut self, bytes: &[u8]) {
 		self.internal.add_bytes(bytes);
 	}
 
+	/// Consumes the hasher and outputs the SHA-224 digest of the concatenation
+	/// of all bytes added to it.
 	pub fn out(self) -> [u8; 28] {
 		let final_hash_vals = self.internal.out();
 
@@ -119,20 +130,25 @@ impl Sha224 {
 	}
 }
 
+/// Struct used for computing SHA-256 on data not stored contiguously in memory.
 #[derive(Clone)]
 pub struct Sha256 {
 	internal: sha_small::ShaHasher,
 }
 
 impl Sha256 {
+	/// Creates a new SHA-256 hasher.
 	pub fn new() -> Self {
 		Self {internal: sha_small::ShaHasher::new(SHA256_INITIAL_HASH_VALS)}
 	}
 
+	/// Adds bytes to the hasher.
 	pub fn add_bytes(&mut self, bytes: &[u8]) {
 		self.internal.add_bytes(bytes);
 	}
 
+	/// Consumes the hasher and outputs the SHA-256 digest of the concatenation
+	/// of all bytes added to it.
 	pub fn out(self) -> [u8; 32] {
 		let final_hash_vals = self.internal.out();
 
@@ -146,20 +162,25 @@ impl Sha256 {
 	}
 }
 
+/// Struct used for computing SHA-384 on data not stored contiguously in memory.
 #[derive(Clone)]
 pub struct Sha384 {
 	internal: sha_big::ShaHasher,
 }
 
 impl Sha384 {
+	/// Creates a new SHA-384 hasher.
 	pub fn new() -> Self {
 		Self {internal: sha_big::ShaHasher::new(SHA384_INITIAL_HASH_VALS)}
 	}
 
+	/// Adds bytes to the hasher.
 	pub fn add_bytes(&mut self, bytes: &[u8]) {
 		self.internal.add_bytes(bytes);
 	}
 
+	/// Consumes the hasher and outputs the SHA-384 digest of the concatenation
+	/// of all bytes added to it.
 	pub fn out(self) -> [u8; 48] {
 		let final_hash_vals = self.internal.out();
 
@@ -173,20 +194,25 @@ impl Sha384 {
 	}
 }
 
+/// Struct used for computing SHA-512 on data not stored contiguously in memory.
 #[derive(Clone)]
 pub struct Sha512 {
 	internal: sha_big::ShaHasher,
 }
 
 impl Sha512 {
+	/// Creates a new SHA-512 hasher.
 	pub fn new() -> Self {
 		Self {internal: sha_big::ShaHasher::new(SHA512_INITIAL_HASH_VALS)}
 	}
 
+	/// Adds bytes to the hasher.
 	pub fn add_bytes(&mut self, bytes: &[u8]) {
 		self.internal.add_bytes(bytes);
 	}
 
+	/// Consumes the hasher and outputs the SHA-512 digest of the concatenation
+	/// of all bytes added to it.
 	pub fn out(self) -> [u8; 64] {
 		let final_hash_vals = self.internal.out();
 

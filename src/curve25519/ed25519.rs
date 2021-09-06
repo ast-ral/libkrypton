@@ -286,6 +286,7 @@ fn clamp_and_mult(buffer: &mut [u8; 32]) -> [u8; 32] {
 	compress(pub_key_point)
 }
 
+/// Returns your public key given your `priv_key`.
 pub fn ed25519_derive_pub_key(priv_key: [u8; 32]) -> [u8; 32] {
 	let digest: [u8; 64] = sha512(&priv_key);
 	let mut secret_scalar: [u8; 32] = digest[0 .. 32].try_into().unwrap();
@@ -337,8 +338,8 @@ fn ed25519_sign_core(
 	out
 }
 
-/// Verifies an Ed25519 digital signature. This implementation is *not*
-/// constant-time, as it does not involve secret data.
+// core algorithm for verifying ed25519 signatures
+// not constant-time since it doesn't involve secret data
 fn ed25519_verify_core(
 	pub_key: [u8; 32],
 	signature: [u8; 64],
@@ -382,22 +383,32 @@ fn ed25519_verify_core(
 	compress(left_side) == compress(right_side)
 }
 
+/// Creates an Ed25519 digital signature, given a `priv_key` and `message`.
+/// This signature can be verified by anyone, given your public key,
+/// the the original `message`, and the signature.
 pub fn ed25519_sign(priv_key: [u8; 32], message: &[u8]) -> [u8; 64] {
 	ed25519_sign_core(priv_key, &[], &[], message)
 }
 
+/// Verifies an Ed25519 digital signature. This implementation is *not*
+/// constant-time, as it does not involve secret data.
 pub fn ed25519_verify(
 	pub_key: [u8; 32],
-	signature: [u8; 64],
 	message: &[u8],
+	signature: [u8; 64],
 ) -> bool {
 	ed25519_verify_core(pub_key, signature, &[], &[], message)
 }
 
+/// Creates an Ed25519ctx digital signature, given a `priv_key`, a `message`,
+/// and a `context`. The `context` is a byte slice of less than 256 bytes
+/// that describes the protocol or application the signature is for. The
+/// `context` should not be empty, nor should it depend on the content of
+/// the `message`.
 pub fn ed25519ctx_sign(
 	priv_key: [u8; 32],
-	context: &[u8],
 	message: &[u8],
+	context: &[u8],
 ) -> [u8; 64] {
 	assert!(context.len() <= 255);
 
@@ -409,11 +420,13 @@ pub fn ed25519ctx_sign(
 	ed25519_sign_core(priv_key, &dom2_prefix, context, message)
 }
 
+/// Verifies an Ed25519ctx digital signature. This implementation is *not*
+/// constant-time, as it does not involve secret data.
 pub fn ed25519ctx_verify(
-	priv_key: [u8; 32],
-	signature: [u8; 64],
-	context: &[u8],
+	pub_key: [u8; 32],
 	message: &[u8],
+	context: &[u8],
+	signature: [u8; 64],
 ) -> bool {
 	assert!(context.len() <= 255);
 
@@ -422,13 +435,19 @@ pub fn ed25519ctx_verify(
 	dom2_prefix[32] = 0x00;
 	dom2_prefix[33] = context.len().try_into().unwrap();
 
-	ed25519_verify_core(priv_key, signature, &dom2_prefix, context, message)
+	ed25519_verify_core(pub_key, signature, &dom2_prefix, context, message)
 }
 
+/// Creates an Ed25519ph digital signature, given a `priv_key`, a `message`,
+/// and a `context`. Unlike Ed25519ctx, the `context` here is optional, and
+/// should be left empty in the default case. Ed25519ph signs a SHA-512 hash of
+/// the input `message`, and is therefore vulnerable if weaknesses in SHA-512
+/// are discovered. For this reason, it's not recommended to use this, unless
+/// for some reason, Ed25519 is not suitable for your use-case.
 pub fn ed25519ph_sign(
 	priv_key: [u8; 32],
-	context: &[u8],
 	message: &[u8],
+	context: &[u8],
 ) -> [u8; 64] {
 	assert!(context.len() <= 255);
 
@@ -442,11 +461,13 @@ pub fn ed25519ph_sign(
 	ed25519_sign_core(priv_key, &dom2_prefix, context, &message)
 }
 
+/// Verifies an Ed25519ph digital signature. This implementation is *not*
+/// constant-time, as it does not involve secret data.
 pub fn ed25519ph_verify(
-	priv_key: [u8; 32],
-	signature: [u8; 64],
-	context: &[u8],
+	pub_key: [u8; 32],
 	message: &[u8],
+	context: &[u8],
+	signature: [u8; 64],
 ) -> bool {
 	assert!(context.len() <= 255);
 
@@ -457,7 +478,7 @@ pub fn ed25519ph_verify(
 
 	let message = sha512(&message);
 
-	ed25519_verify_core(priv_key, signature, &dom2_prefix, context, &message)
+	ed25519_verify_core(pub_key, signature, &dom2_prefix, context, &message)
 }
 
 #[test]
@@ -508,7 +529,7 @@ fn ed25519_test_vector_1() {
 
 	assert_eq!(ed25519_sign(priv_key, message), signature);
 
-	assert!(ed25519_verify(pub_key, signature, message));
+	assert!(ed25519_verify(pub_key, message, signature));
 }
 
 #[test]
@@ -544,7 +565,7 @@ fn ed25519_test_vector_2() {
 
 	assert_eq!(ed25519_sign(priv_key, message), signature);
 
-	assert!(ed25519_verify(pub_key, signature, message));
+	assert!(ed25519_verify(pub_key, message, signature));
 }
 
 #[test]
@@ -580,7 +601,7 @@ fn ed25519_test_vector_3() {
 
 	assert_eq!(ed25519_sign(priv_key, message), signature);
 
-	assert!(ed25519_verify(pub_key, signature, message));
+	assert!(ed25519_verify(pub_key, message, signature));
 }
 
 #[test]
@@ -745,7 +766,7 @@ fn ed25519_test_vector_1024() {
 
 	assert_eq!(ed25519_sign(priv_key, message), signature);
 
-	assert!(ed25519_verify(pub_key, signature, message));
+	assert!(ed25519_verify(pub_key, message, signature));
 }
 
 #[test]
@@ -790,7 +811,7 @@ fn ed25519_test_vector_sha_abc() {
 
 	assert_eq!(ed25519_sign(priv_key, message), signature);
 
-	assert!(ed25519_verify(pub_key, signature, message));
+	assert!(ed25519_verify(pub_key, message, signature));
 }
 
 #[test]
@@ -829,9 +850,9 @@ fn ed25519ctx_test_vector_foo() {
 		0x1f, 0x4b, 0x88, 0x8e, 0x4e, 0x7e, 0xdb, 0x0d,
 	];
 
-	assert_eq!(ed25519ctx_sign(priv_key, context, message), signature);
+	assert_eq!(ed25519ctx_sign(priv_key, message, context), signature);
 
-	assert!(ed25519ctx_verify(pub_key, signature, context, message));
+	assert!(ed25519ctx_verify(pub_key, message, context, signature));
 }
 
 #[test]
@@ -870,9 +891,9 @@ fn ed25519ctx_test_vector_bar() {
 		0x91, 0xc2, 0x04, 0x3d, 0x4e, 0xb3, 0xe9, 0x0d,
 	];
 
-	assert_eq!(ed25519ctx_sign(priv_key, context, message), signature);
+	assert_eq!(ed25519ctx_sign(priv_key, message, context), signature);
 
-	assert!(ed25519ctx_verify(pub_key, signature, context, message));
+	assert!(ed25519ctx_verify(pub_key, message, context, signature));
 }
 
 #[test]
@@ -911,9 +932,9 @@ fn ed25519ctx_test_vector_foo2() {
 		0x26, 0x26, 0x9d, 0x89, 0x45, 0xf8, 0x4b, 0x0b,
 	];
 
-	assert_eq!(ed25519ctx_sign(priv_key, context, message), signature);
+	assert_eq!(ed25519ctx_sign(priv_key, message, context), signature);
 
-	assert!(ed25519ctx_verify(pub_key, signature, context, message));
+	assert!(ed25519ctx_verify(pub_key, message, context, signature));
 }
 
 #[test]
@@ -952,9 +973,9 @@ fn ed25519ctx_test_vector_foo3() {
 		0xa2, 0xb2, 0xe0, 0xdc, 0x0a, 0xd8, 0x96, 0x0f,
 	];
 
-	assert_eq!(ed25519ctx_sign(priv_key, context, message), signature);
+	assert_eq!(ed25519ctx_sign(priv_key, message, context), signature);
 
-	assert!(ed25519ctx_verify(pub_key, signature, context, message));
+	assert!(ed25519ctx_verify(pub_key, message, context, signature));
 }
 
 #[test]
@@ -989,7 +1010,7 @@ fn ed25519ph_test_vector_abc() {
 		0xaa, 0xd1, 0x1c, 0x2a, 0x26, 0x08, 0x34, 0x06,
 	];
 
-	assert_eq!(ed25519ph_sign(priv_key, context, message), signature);
+	assert_eq!(ed25519ph_sign(priv_key, message, context), signature);
 
-	assert!(ed25519ph_verify(pub_key, signature, context, message));
+	assert!(ed25519ph_verify(pub_key, message, context, signature));
 }

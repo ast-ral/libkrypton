@@ -1,6 +1,6 @@
 # libkrypton
 
-libkrypton is my toy cryptography library.
+libkrypton is a toy cryptography library.
 
 ## Security
 
@@ -10,7 +10,9 @@ side-channel attacks such as timing attacks.
 
 ## Algorithms
 
-libkrypton implements various algorithms including:
-* ChaCha20, a 256-bit strong stream cipher and pseudorandom entropy source
-* Poly1305, a ~100-bit strong MAC / authenticator
-* X25519, a 128-bit strong Diffie-Hellman key exchange over the Curve25519 elliptic curve
+libkrypton implements various algorithms:
+* ChaCha20, a 256-bit security level stream cipher and pseudorandom entropy source
+* Poly1305, a ~100-bit security level MAC / authenticator
+* X25519, a 128-bit security level Diffie-Hellman key exchange over the Curve25519 elliptic curve
+* Ed25519, a 128-bit security level digital signature over the Edwards25519 elliptic curve
+* SHA-2, a family of hash functions targeting multiple security levels

@@ -63,7 +63,7 @@ fn process_state(input: &[u32; 16], output: &mut [u32; 16]) {
 /// Creating a ChaCha20 instance can be done through [`ChaCha20::new`].
 /// With an instance, you can encrypt/decrypt binary data with the [`ChaCha20::crypt`]
 /// function, or read raw pseudorandom data using the [`Iterator<Item = u8>`](Iterator)
-/// implementation or the [`Read`] implementation.
+/// implementation or the [`std::io::Read`] implementation.
 pub struct ChaCha20 {
 	inner_state: [u32; 16],
 	outer_state: [u32; 16],
@@ -155,7 +155,7 @@ impl ChaCha20 {
 		}
 	}
 
-	/// This is provided as an alternative to the [`Seek`] implementation.
+	/// This is provided as an alternative to the [`std::io::Seek`] implementation.
 	/// Sets the position of the stream as bytes from the start.
 	/// If the position is greater than the length of the stream,
 	/// it gets clamped down to the length of the stream.

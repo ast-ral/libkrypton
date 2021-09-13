@@ -7,26 +7,22 @@ use core::convert::TryInto;
 #[cfg(feature = "std")]
 use std::io::{self, Read, Seek, SeekFrom};
 
-fn left_rotate(val: u32, rotation: u8) -> u32 {
-	(val << rotation) | (val >> (32 - rotation))
-}
-
 fn quarter_round(a: &mut u32, b: &mut u32, c: &mut u32, d: &mut u32) {
 	*a = a.wrapping_add(*b);
 	*d ^= *a;
-	*d = left_rotate(*d, 16);
+	*d = d.rotate_left(16);
 
 	*c = c.wrapping_add(*d);
 	*b ^= *c;
-	*b = left_rotate(*b, 12);
+	*b = b.rotate_left(12);
 
 	*a = a.wrapping_add(*b);
 	*d ^= *a;
-	*d = left_rotate(*d, 8);
+	*d = d.rotate_left(8);
 
 	*c = c.wrapping_add(*d);
 	*b ^= *c;
-	*b = left_rotate(*b, 7);
+	*b = b.rotate_left(7);
 }
 
 fn double_round(state: &mut [u32; 16]) {

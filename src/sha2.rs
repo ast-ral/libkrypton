@@ -339,16 +339,12 @@ mod sha_small {
 		}
 	}
 
-	fn right_rotate(val: u32, rotation: u8) -> u32 {
-		(val >> rotation) | (val << (32 - rotation))
+	fn mix_shift(val: u32, rotation_a: u32, rotation_b: u32, shift: u32) -> u32 {
+		val.rotate_right(rotation_a) ^ val.rotate_right(rotation_b) ^ (val >> shift)
 	}
 
-	fn mix_shift(val: u32, rotation_a: u8, rotation_b: u8, shift: u8) -> u32 {
-		right_rotate(val, rotation_a) ^ right_rotate(val, rotation_b) ^ (val >> shift)
-	}
-
-	fn mix_rotate(val: u32, rotation_a: u8, rotation_b: u8, rotation_c: u8) -> u32 {
-		right_rotate(val, rotation_a) ^ right_rotate(val, rotation_b) ^ right_rotate(val, rotation_c)
+	fn mix_rotate(val: u32, rotation_a: u32, rotation_b: u32, rotation_c: u32) -> u32 {
+		val.rotate_right(rotation_a) ^ val.rotate_right(rotation_b) ^ val.rotate_right(rotation_c)
 	}
 
 	fn sha_block(hash_vals: &mut [u32; 8], chunk: &[u8; 64]) {
@@ -521,16 +517,12 @@ mod sha_big {
 		}
 	}
 
-	fn right_rotate(val: u64, rotation: u8) -> u64 {
-		(val >> rotation) | (val << (64 - rotation))
+	fn mix_shift(val: u64, rotation_a: u32, rotation_b: u32, shift: u32) -> u64 {
+		val.rotate_right(rotation_a) ^ val.rotate_right(rotation_b) ^ (val >> shift)
 	}
 
-	fn mix_shift(val: u64, rotation_a: u8, rotation_b: u8, shift: u8) -> u64 {
-		right_rotate(val, rotation_a) ^ right_rotate(val, rotation_b) ^ (val >> shift)
-	}
-
-	fn mix_rotate(val: u64, rotation_a: u8, rotation_b: u8, rotation_c: u8) -> u64 {
-		right_rotate(val, rotation_a) ^ right_rotate(val, rotation_b) ^ right_rotate(val, rotation_c)
+	fn mix_rotate(val: u64, rotation_a: u32, rotation_b: u32, rotation_c: u32) -> u64 {
+		val.rotate_right(rotation_a) ^ val.rotate_right(rotation_b) ^ val.rotate_right(rotation_c)
 	}
 
 	fn sha_block(hash_vals: &mut [u64; 8], chunk: &[u8; 128]) {

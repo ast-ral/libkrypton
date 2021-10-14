@@ -16,5 +16,9 @@ pub use curve25519::ed25519;
 #[doc(inline)]
 pub use curve25519::x25519;
 
+#[doc(inline)]
+pub use keccak::sha3;
+
 mod curve25519;
+mod keccak;
 mod segmented_int;

@@ -345,7 +345,7 @@ fn ed25519_verify_core(
 	signature: [u8; 64],
 	dom2_prefix: &[u8],
 	context: &[u8],
-	message: &[u8]
+	message: &[u8],
 ) -> bool {
 	let pub_key_point = match decompress(pub_key) {
 		Some(val) => val,
